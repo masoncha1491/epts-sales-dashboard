@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPTS Group Sales Performance Dashboard</title>
+  <style>
+    :root {
+      --panel: #ffffff;
+      --text: #1f2a44;
+      --muted: #6a7386;
+      --line: #d7dde7;
+      --blue: #1717d4;
+      --navy: #2b304c;
+      --green: #07b357;
+      --green-soft: rgba(7, 179, 87, 0.12);
+      --red: #ff3b30;
+      --shadow: 0 14px 35px rgba(17, 24, 39, 0.08);
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f7f8fb 0%, #eef1f6 100%);
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    .page { max-width: 1480px; margin: 0 auto; padding: 28px 22px 36px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .header h1 { margin: 0 0 8px; font-size: 46px; letter-spacing: -0.03em; }
+    .subtext { color: var(--muted); font-size: 14px; }
+    .header-meta { text-align: right; color: var(--muted); font-size: 14px; padding-top: 10px; line-height: 1.8; }
+    .loader-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      background: rgba(255,255,255,.85);
+      border: 1px solid rgba(215,221,231,.9);
+      border-radius: 24px;
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .loader-info h3 { margin: 0 0 6px; font-size: 18px; }
+    .loader-info p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .loader-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+    .button, .file-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      text-decoration: none;
+      cursor: pointer;
+      font-size: 14px;
+      transition: .18s ease;
+    }
+    .file-label.primary, .button.primary { background: var(--green); border-color: var(--green); color: #fff; }
+    .button:hover, .file-label:hover { transform: translateY(-1px); box-shadow: 0 10px 24px rgba(17,24,39,.08); }
+    #excelFile { display: none; }
+    .status-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #eef7ff;
+      color: #245c9c;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-pill.success { background: #edf9f2; color: #0d8f47; }
+    .status-pill.warn { background: #fff7e9; color: #b7791f; }
+    .filters {
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(215,221,231,.9);
+      border-radius: 24px;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      gap: 16px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+    .filter-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+    select {
+      width: 100%;
+      border: none;
+      border-bottom: 2px solid var(--line);
+      background: transparent;
+      padding: 10px 4px 11px;
+      font-size: 15px;
+      color: var(--text);
+      outline: none;
+    }
+    select:focus { border-color: var(--green); }
+    .chip-wrap { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-top: 4px; }
+    .chip {
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: #fff;
+      border-radius: 999px;
+      padding: 9px 16px;
+      cursor: pointer;
+      transition: .18s ease;
+      font-size: 14px;
+    }
+    .chip.active { background: var(--green); color: #fff; border-color: var(--green); box-shadow: 0 10px 24px rgba(7,179,87,.2); }
+    .metrics { margin-top: 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .metrics.secondary { margin-top: 16px; }
+    .metric-card {
+      border-radius: 0;
+      padding: 34px 28px;
+      color: #fff;
+      min-height: 178px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: var(--shadow);
+    }
+    .metric-card h2 { margin: 0; font-size: 64px; letter-spacing: -0.04em; font-weight: 800; }
+    .metric-card p { margin: 12px 0 0; font-size: 24px; opacity: .96; }
+    .metric-card small { margin-top: 10px; font-size: 14px; opacity: .85; }
+    .metric-card.blue { background: var(--blue); }
+    .metric-card.navy { background: var(--navy); }
+    .metric-card.green { background: var(--green); }
+    .metric-card.orange { background: #d97706; }
+    .metric-card.teal { background: #0f766e; }
+    .metric-card.plum { background: #7c3aed; }
+    .grid { margin-top: 22px; display: grid; grid-template-columns: 1.7fr 1fr; gap: 18px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(215,221,231,.9);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+    .panel-title { font-size: 22px; margin: 0; }
+    .panel-note { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+    .legend span { display: inline-flex; align-items: center; gap: 8px; }
+    .dot, .line { display: inline-block; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .line { width: 18px; height: 0; border-top: 3px solid var(--red); transform: translateY(-1px); }
+    .chart-box {
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+      border: 1px solid #eef2f6;
+      padding: 14px;
+    }
+    svg { width: 100%; height: auto; display: block; }
+    .summary-list { display: grid; gap: 12px; margin-top: 6px; }
+    .summary-item { border: 1px solid #edf1f5; border-radius: 18px; padding: 16px; background: #fcfdff; }
+    .summary-item strong { display: block; font-size: 28px; margin-top: 8px; color: var(--text); letter-spacing: -0.03em; }
+    .summary-item span { color: var(--muted); font-size: 13px; }
+    .summary-item.highlight { background: linear-gradient(135deg, rgba(7,179,87,.10), rgba(23,23,212,.05)); border-color: rgba(7,179,87,.22); }
+    .table-wrap { margin-top: 18px; overflow: hidden; border-radius: 20px; border: 1px solid #dde5ee; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { padding: 16px 14px; border-bottom: 1px solid #edf1f5; font-size: 14px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); background: #f8fafc; font-weight: 600; white-space: nowrap; }
+    tbody tr:hover { background: #f9fcff; }
+    .name-cell { display: flex; align-items: center; gap: 12px; }
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .muted { color: var(--muted); }
+    .footer-tip { margin-top: 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .inline-select {
+      min-width: 220px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .mini-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .mini-card {
+      border: 1px solid #e8edf4;
+      border-radius: 18px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    }
+    .mini-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .mini-card strong {
+      font-size: 28px;
+      color: var(--text);
+      letter-spacing: -0.03em;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .hint-box {
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: #f8fbff;
+      border: 1px dashed #c9d7e6;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .clickable-row {
+      cursor: pointer;
+      transition: background .18s ease;
+    }
+    .clickable-row.active {
+      background: #eef7ff;
+    }
+    .clickable-name {
+      text-decoration: underline;
+      text-decoration-color: rgba(31,42,68,.2);
+      text-underline-offset: 3px;
+    }
+    .person-bar {
+      cursor: pointer;
+    }
+    .person-bar text,
+    .person-bar rect {
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .person-bar.inactive text,
+    .person-bar.inactive rect {
+      opacity: .45;
+    }
+    .person-bar.active rect {
+      stroke: #0f172a;
+      stroke-width: 2;
+    }
+    .brand-footer {
+      text-align: center;
+      color: #6b7280;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 22px;
+      letter-spacing: .02em;
+    }
+    @media (max-width: 1280px) {
+      .filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (max-width: 1100px) {
+      .loader-panel, .header { flex-direction: column; }
+      .loader-actions, .header-meta { justify-content: flex-start; text-align: left; padding-top: 0; }
+      .metrics, .grid { grid-template-columns: 1fr; }
+      .mini-metrics, .detail-grid { grid-template-columns: 1fr; }
+      .metric-card h2 { font-size: 48px; }
+    }
+    @media (max-width: 700px) {
+      .page { padding: 18px 14px 28px; }
+      .filters { grid-template-columns: 1fr; }
+      .metric-card { min-height: 150px; padding: 26px 20px; }
+      .metric-card h2 { font-size: 38px; }
+      .metric-card p { font-size: 18px; }
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 1260px; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div>
+        <h1>EPTS Group Sales Performance Dashboard</h1>
+        <div class="subtext">上传已填写的 Excel 后，可按团队、地区、产品线、公司/供应商、Plan Type 即时查看顾问业绩与单数。 / Upload your completed Excel file to instantly view advisor performance and cases by team, region, product line, company/vendor and plan type.</div>
+      </div>
+      <div class="header-meta">
+        <div>Currency: MYR</div>
+        <div id="lastUpdated"></div>
+      </div>
+    </div>
+
+    <div class="loader-panel">
+      <div class="loader-info">
+        <h3>导入最新 Excel / Import Latest Excel</h3>
+        <p>这是正式空白版 dashboard。页面不会再载入任何示例演示数据，打开后请直接选择你自己的 Excel 文件。 / This is the clean production-style dashboard. No demo data is preloaded; please import your own Excel file.</p>
+        <div class="status-row">
+          <span class="status-pill" id="dataMode">当前状态: 未导入数据 / Current: No Data Loaded</span>
+          <span class="status-pill warn" id="fileStatus">请先导入 Excel / Please import Excel first</span>
+        </div>
+      </div>
+      <div class="loader-actions">
+        <label class="file-label primary" for="excelFile">选择已填写的 Excel / Choose Excel</label>
+        <input id="excelFile" type="file" accept=".xlsx,.xls" />
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>团队 / Team</label>
+        <select id="teamFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>统计范围 / Period</label>
+        <select id="periodFilter">
+          <option value="YTD">YTD</option>
+          <option value="MONTH">单月</option>
+          <option value="QTD">季度</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>月份 / Month</label>
+        <select id="monthFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>年份 / Year</label>
+        <select id="yearFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>地区 / Region</label>
+        <select id="regionFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>公司/供应商（可多选） / Company-Vendor (Multi-select)</label>
+        <div class="chip-wrap" id="vendorChips"></div>
+      </div>
+      <div class="filter-group">
+        <label>Plan Type / 计划类型</label>
+        <select id="planTypeFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>生效状态 / Inforce Status</label>
+        <select id="statusFilter"></select>
+      </div>
+      <div class="filter-group">
+        <label>产品线（可多选） / Product Line (Multi-select)</label>
+        <div class="chip-wrap" id="productChips"></div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card blue">
+        <h2 id="metricSales">0</h2>
+        <p>整体保费 / Total Premium</p>
+        <small id="metricSalesSub">当前筛选下的保费总额 / Total premium under current filters</small>
+      </div>
+      <div class="metric-card navy">
+        <h2 id="metricOrders">0</h2>
+        <p>总单数 / Total Cases</p>
+        <small id="metricOrdersSub">已过滤后的成交件数 / Cases under current filters</small>
+      </div>
+      <div class="metric-card green">
+        <h2 id="metricAvg">0</h2>
+        <p>平均单值 / Average Per Case</p>
+        <small id="metricAvgSub">每单平均贡献金额 / Average premium per case</small>
+      </div>
+    </div>
+
+    <div class="metrics secondary">
+      <div class="metric-card orange">
+        <h2 id="metricSubmissionPremium">0</h2>
+        <p>提交保费 / Submission Premium</p>
+        <small id="metricSubmissionPremiumSub">所有已提交案件保费 / Premium of submitted cases</small>
+      </div>
+      <div class="metric-card teal">
+        <h2 id="metricInforcePremium">0</h2>
+        <p>生效保费 / Inforce Premium</p>
+        <small id="metricInforcePremiumSub">已完成生效的保费 / Premium already inforce</small>
+      </div>
+      <div class="metric-card plum">
+        <h2 id="metricInforceRate">0%</h2>
+        <p>生效率 / Inforce Rate</p>
+        <small id="metricInforceRateSub">按保费计算的生效率 / Inforce rate by premium</small>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">Monthly Trend / 月度趋势</h3>
+            <div class="panel-note">绿色柱状图为业绩，红线为单数走势。无论新增什么供应商或 Plan Type，导入后都会自动纳入统计。 / Green bars show premium and the red line shows cases.</div>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#07b357"></i> 业绩 / Premium</span>
+            <span><i class="line"></i> 单数 / Cases</span>
+          </div>
+        </div>
+        <div class="chart-box">
+          <svg id="trendChart" viewBox="0 0 900 420" aria-label="Monthly Trend Chart"></svg>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr id="monthSummaryHead">
+                <th>月份</th>
+              </tr>
+            </thead>
+            <tbody id="monthSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">Advisor Overview / 顾问总览</h3>
+            <div class="panel-note">按当前筛选找出表现最强的顾问，并同步显示最高单数与最高平均单值。 / Find the top advisor under the current filters.</div>
+          </div>
+        </div>
+        <div class="summary-list">
+          <div class="summary-item highlight">
+            <span>最佳顾问 / Top Advisor</span>
+            <strong id="topSalesperson">-</strong>
+            <div class="muted" id="topSalespersonMeta">-</div>
+          </div>
+          <div class="summary-item">
+            <span>最高单数 / Highest Cases</span>
+            <strong id="topOrderName">-</strong>
+            <div class="muted" id="topOrderMeta">-</div>
+          </div>
+          <div class="summary-item">
+            <span>最高平均单值 / Highest Average Per Case</span>
+            <strong id="bestAvgName">-</strong>
+            <div class="muted" id="bestAvgMeta">-</div>
+          </div>
+        </div>
+        <div class="chart-box" style="margin-top:16px;">
+          <svg id="salespersonChart" viewBox="0 0 520 380" aria-label="Advisor ranking"></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-title">Advisor Detail / 顾问明细</h3>
+          <div class="panel-note">这里会按顾问 + 产品线 + 公司/供应商 + Plan Type 展示明细汇总，方便你看不同供货方和分类表现。 / Detail summary by advisor, product line, vendor and plan type.</div>
+        </div>
+        <div class="badge" id="recordCount">0 行</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>顾问 / Advisor</th>
+              <th>团队 / Team</th>
+              <th>地区 / Region</th>
+              <th>产品线 / Product Line</th>
+              <th>公司/供应商 / Company-Vendor</th>
+              <th>Plan Type</th>
+              <th>生效状态 / Inforce Status</th>
+              <th>业绩 / Premium</th>
+              <th>单数 / Cases</th>
+              <th>平均单值 / Average Per Case</th>
+              <th>占比 / Share</th>
+            </tr>
+          </thead>
+          <tbody id="salespersonBody"></tbody>
+        </table>
+      </div>
+      <div class="footer-tip">
+        使用方法：先填写 `sales_dashboard_template.xlsx`，把新的 `产品线`、`公司/供应商`、`Plan Type` 维护好，再回到这里导入 Excel。筛选项会自动出现新分类，不需要改代码。 / Maintain categories in Excel first, then import back here.
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px;">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-title">Advisor Performance / 顾问表现</h3>
+          <div class="panel-note">支持点进看每位顾问的个人详细表现。你可以点右侧排行图、上表顾问名称，或直接在这里切换顾问。 / Click into each advisor for a personal breakdown.</div>
+        </div>
+        <div class="panel-actions">
+          <select id="salespersonFocusFilter" class="inline-select"></select>
+          <button class="button" id="clearSalespersonFocus" type="button">返回全部 / Back to All</button>
+        </div>
+      </div>
+
+      <div id="personalHint" class="hint-box">
+        先从上面的排行图或表格点一位顾问，或在右上角下拉框直接选择，页面就会显示他的个人 KPI、月度表现和分类拆解。 / Choose an advisor from the chart, table or dropdown.
+      </div>
+
+      <div id="personalContent" style="display:none;">
+        <div class="mini-metrics">
+          <div class="mini-card">
+            <span>个人总业绩 / Personal Premium</span>
+            <strong id="personalSales">-</strong>
+          </div>
+          <div class="mini-card">
+            <span>个人总单数 / Personal Cases</span>
+            <strong id="personalOrders">-</strong>
+          </div>
+          <div class="mini-card">
+            <span>平均单值 / Average Per Case</span>
+            <strong id="personalAvg">-</strong>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="chart-box">
+            <div class="panel-note" style="margin-bottom:10px;">月度表现 / Monthly Performance</div>
+            <div class="table-wrap" style="margin-top:0;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>月份 / Month</th>
+                    <th>业绩 / Premium</th>
+                    <th>单数 / Cases</th>
+                    <th>平均单值 / Average Per Case</th>
+                  </tr>
+                </thead>
+                <tbody id="personalMonthlyBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="chart-box">
+            <div class="panel-note" style="margin-bottom:10px;">分类拆解 / Breakdown</div>
+            <div class="table-wrap" style="margin-top:0;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>产品线 / Product Line</th>
+                    <th>供应商 / Vendor</th>
+                    <th>Plan Type</th>
+                    <th>生效状态 / Inforce Status</th>
+                    <th>业绩 / Premium</th>
+                    <th>单数 / Cases</th>
+                  </tr>
+                </thead>
+                <tbody id="personalBreakdownBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brand-footer">
+      <div>Powered by EPTS Group | © 2026 EPTS Group. All Rights Reserved.</div>
+      <div>Confidential &amp; Proprietary. Unauthorized copying, sharing, screenshot, distribution or use is strictly prohibited. Legal action may be taken against any misuse.</div>
+    </div>
+  </div>
+
+  <script>
+    const allMonthKeys = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthLabels = { Jan:"1月", Feb:"2月", Mar:"3月", Apr:"4月", May:"5月", Jun:"6月", Jul:"7月", Aug:"8月", Sep:"9月", Oct:"10月", Nov:"11月", Dec:"12月" };
+    const palette = ["#2D6CDF","#00A76F","#6842FF","#F59E0B","#F04438","#10BCE1","#D948B4","#4361EE","#14B8A6","#8B5CF6"];
+    const preferredProductOrder = ["Life", "Medical", "General", "Others", "SSS"];
+    const filters = {
+      team: "All",
+      period: "YTD",
+      month: "Jun",
+      year: String(new Date().getFullYear()),
+      region: "All",
+      vendor: [],
+      planType: "All",
+      status: "All",
+      productLine: []
+    };
+
+    const teamFilter = document.getElementById("teamFilter");
+    const periodFilter = document.getElementById("periodFilter");
+    const monthFilter = document.getElementById("monthFilter");
+    const regionFilter = document.getElementById("regionFilter");
+    const yearFilter = document.getElementById("yearFilter");
+    const vendorChips = document.getElementById("vendorChips");
+    const planTypeFilter = document.getElementById("planTypeFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const productChips = document.getElementById("productChips");
+    const excelFile = document.getElementById("excelFile");
+    const salespersonBody = document.getElementById("salespersonBody");
+    const salespersonChart = document.getElementById("salespersonChart");
+    const salespersonFocusFilter = document.getElementById("salespersonFocusFilter");
+    const clearSalespersonFocus = document.getElementById("clearSalespersonFocus");
+    const money = new Intl.NumberFormat("en-MY", { style:"currency", currency:"MYR", maximumFractionDigits:0 });
+
+    let rawRecords = [];
+    let currentSourceLabel = "未导入数据 / No Data Loaded";
+    let selectedSalespersonId = "";
+
+    function formatShortMoney(value) {
+      if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
+      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+      return Number(value || 0).toFixed(0);
+    }
+
+    function initials(name) {
+      return String(name || "-").split(" ").map(part => part[0] || "").join("").slice(0, 2).toUpperCase();
+    }
+
+    function normalizeMonth(value) {
+      if (value == null || value === "") return "";
+      const text = String(value).trim();
+      const lower = text.toLowerCase();
+      const map = {
+        jan:"Jan", january:"Jan", "1":"Jan", "01":"Jan", "1月":"Jan",
+        feb:"Feb", february:"Feb", "2":"Feb", "02":"Feb", "2月":"Feb",
+        mar:"Mar", march:"Mar", "3":"Mar", "03":"Mar", "3月":"Mar",
+        apr:"Apr", april:"Apr", "4":"Apr", "04":"Apr", "4月":"Apr",
+        may:"May", "5":"May", "05":"May", "5月":"May",
+        jun:"Jun", june:"Jun", "6":"Jun", "06":"Jun", "6月":"Jun",
+        jul:"Jul", july:"Jul", "7":"Jul", "07":"Jul", "7月":"Jul",
+        aug:"Aug", august:"Aug", "8":"Aug", "08":"Aug", "8月":"Aug",
+        sep:"Sep", sept:"Sep", september:"Sep", "9":"Sep", "09":"Sep", "9月":"Sep",
+        oct:"Oct", october:"Oct", "10":"Oct", "10月":"Oct",
+        nov:"Nov", november:"Nov", "11":"Nov", "11月":"Nov",
+        dec:"Dec", december:"Dec", "12":"Dec", "12月":"Dec"
+      };
+      return map[lower] || text.slice(0,3).replace(/^./, ch => ch.toUpperCase());
+    }
+
+    function parseExcelDate(value) {
+      if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+      if (typeof value === "number" && window.XLSX?.SSF?.parse_date_code) {
+        const parsed = XLSX.SSF.parse_date_code(value);
+        if (parsed) return new Date(parsed.y, parsed.m - 1, parsed.d);
+      }
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function cleanNumber(value) {
+      if (typeof value === "number") return value;
+      if (value == null || value === "") return 0;
+      const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function normalizeInforceStatus(value) {
+      const text = String(value || "").trim().toLowerCase();
+      if (!text) return "Submitted";
+      if (["inforce", "生效", "已生效", "active"].includes(text)) return "Inforce";
+      if (["submitted", "submission", "提交", "submitted case"].includes(text)) return "Submitted";
+      return String(value).trim();
+    }
+
+    function setStatus(modeText, fileText, success = false) {
+      const modeEl = document.getElementById("dataMode");
+      const fileEl = document.getElementById("fileStatus");
+      modeEl.textContent = modeText;
+      fileEl.textContent = fileText;
+      fileEl.className = `status-pill ${success ? "success" : "warn"}`;
+    }
+
+    function uniqueValues(records, key) {
+      return [...new Set(records.map(row => row[key]).filter(Boolean))];
+    }
+
+    function sortAlpha(values) {
+      return [...values].sort((a, b) => String(a).localeCompare(String(b), "en", { sensitivity: "base" }));
+    }
+
+    function sortProductLines(values) {
+      return [...values].sort((a, b) => {
+        const aIndex = preferredProductOrder.indexOf(a);
+        const bIndex = preferredProductOrder.indexOf(b);
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return String(a).localeCompare(String(b), "en", { sensitivity: "base" });
+      });
+    }
+
+    function sortStatuses(values) {
+      const order = ["Submitted", "Inforce"];
+      return [...values].sort((a, b) => {
+        const aIndex = order.indexOf(a);
+        const bIndex = order.indexOf(b);
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return String(a).localeCompare(String(b), "en", { sensitivity: "base" });
+      });
+    }
+
+    function normalizeMultiSelection(currentValues, options) {
+      if (!Array.isArray(currentValues)) return [];
+      return currentValues.filter(value => options.includes(value));
+    }
+
+    function isMultiSelected(selectedValues, value) {
+      return Array.isArray(selectedValues) && selectedValues.includes(value);
+    }
+
+    function toggleMultiSelection(selectedValues, value) {
+      const current = Array.isArray(selectedValues) ? [...selectedValues] : [];
+      return current.includes(value) ? current.filter(item => item !== value) : [...current, value];
+    }
+
+    function matchesMultiFilter(selectedValues, value) {
+      return !Array.isArray(selectedValues) || selectedValues.length === 0 || selectedValues.includes(value);
+    }
+
+    function renderMultiChips(container, options, selectedValues, kind) {
+      const allActive = !Array.isArray(selectedValues) || selectedValues.length === 0;
+      container.innerHTML = [
+        `<button class="chip ${allActive ? "active" : ""}" data-kind="${kind}" data-value="__all__">全部</button>`,
+        ...options.map(option => `<button class="chip ${isMultiSelected(selectedValues, option) ? "active" : ""}" data-kind="${kind}" data-value="${option}">${option}</button>`)
+      ].join("");
+    }
+
+    function summarizeSelectionLabel(label, selectedValues) {
+      if (!Array.isArray(selectedValues) || selectedValues.length === 0) return `${label}: 全部 / All`;
+      if (selectedValues.length === 1) return `${label}: ${selectedValues[0]}`;
+      return `${label}: 已选 ${selectedValues.length} 项 / ${selectedValues.length} selected`;
+    }
+
+    function getAvailableYears(records) {
+      const years = [...new Set(records.map(r => String(r.year)).filter(Boolean))].sort();
+      return years.length ? years : [String(new Date().getFullYear())];
+    }
+
+    function syncYearFilter(records) {
+      const years = getAvailableYears(records);
+      if (!years.includes(filters.year)) filters.year = years[years.length - 1];
+      yearFilter.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+      yearFilter.value = filters.year;
+    }
+
+    function getCurrentMonthKeys(records) {
+      const activeYear = String(filters.year);
+      const present = new Set(records.filter(r => String(r.year) === activeYear).map(r => r.month));
+      const months = allMonthKeys.filter(m => present.has(m));
+      return months.length ? months : allMonthKeys.slice(0, 6);
+    }
+
+    function populateFilters() {
+      const teams = ["All", ...sortAlpha(uniqueValues(rawRecords, "team"))];
+      const regions = ["All", ...sortAlpha(uniqueValues(rawRecords, "region"))];
+      const vendors = ["All", ...sortAlpha(uniqueValues(rawRecords, "vendor"))];
+      const planTypes = ["All", ...sortAlpha(uniqueValues(rawRecords, "planType"))];
+      const statuses = ["All", ...sortStatuses(uniqueValues(rawRecords, "status"))];
+      const productLines = ["All", ...sortProductLines(uniqueValues(rawRecords, "productLine"))];
+      const months = getCurrentMonthKeys(rawRecords);
+
+      if (!months.includes(filters.month)) filters.month = months[months.length - 1];
+      if (!teams.includes(filters.team)) filters.team = "All";
+      if (!regions.includes(filters.region)) filters.region = "All";
+      if (!planTypes.includes(filters.planType)) filters.planType = "All";
+      if (!statuses.includes(filters.status)) filters.status = "All";
+      filters.vendor = normalizeMultiSelection(filters.vendor, vendors.filter(v => v !== "All"));
+      filters.productLine = normalizeMultiSelection(filters.productLine, productLines.filter(v => v !== "All"));
+
+      teamFilter.innerHTML = teams.map(v => `<option value="${v}">${v}</option>`).join("");
+      regionFilter.innerHTML = regions.map(v => `<option value="${v}">${v}</option>`).join("");
+      planTypeFilter.innerHTML = planTypes.map(v => `<option value="${v}">${v}</option>`).join("");
+      statusFilter.innerHTML = statuses.map(v => `<option value="${v}">${v}</option>`).join("");
+      monthFilter.innerHTML = months.map(v => `<option value="${v}">${monthLabels[v] || v}</option>`).join("");
+      renderMultiChips(vendorChips, vendors.filter(v => v !== "All"), filters.vendor, "vendor");
+      renderMultiChips(productChips, productLines.filter(v => v !== "All"), filters.productLine, "product");
+
+      teamFilter.value = filters.team;
+      regionFilter.value = filters.region;
+      planTypeFilter.value = filters.planType;
+      statusFilter.value = filters.status;
+      monthFilter.value = filters.month;
+      periodFilter.value = filters.period;
+      syncYearFilter(rawRecords);
+    }
+
+    function getMonthsForPeriod() {
+      const months = getCurrentMonthKeys(rawRecords);
+      const currentIndex = months.indexOf(filters.month);
+      if (filters.period === "MONTH") return currentIndex >= 0 ? [filters.month] : [months[months.length - 1]];
+      if (filters.period === "QTD") return months.slice(Math.max(0, currentIndex - 2), currentIndex + 1);
+      return months.slice(0, currentIndex + 1);
+    }
+
+    function recordMatches(record, monthSet = null, options = {}) {
+      const { ignoreStatus = false } = options;
+      if (String(record.year) !== String(filters.year)) return false;
+      if (monthSet && !monthSet.has(record.month)) return false;
+      if (filters.team !== "All" && record.team !== filters.team) return false;
+      if (filters.region !== "All" && record.region !== filters.region) return false;
+      if (!matchesMultiFilter(filters.vendor, record.vendor)) return false;
+      if (filters.planType !== "All" && record.planType !== filters.planType) return false;
+      if (!ignoreStatus && filters.status !== "All" && record.status !== filters.status) return false;
+      if (!matchesMultiFilter(filters.productLine, record.productLine)) return false;
+      return true;
+    }
+
+    function summarizePeople() {
+      const monthSet = new Set(getMonthsForPeriod());
+      const grouped = new Map();
+      rawRecords.forEach(record => {
+        if (!recordMatches(record, monthSet)) return;
+        const key = record.id || record.name;
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            id: record.id || "",
+            name: record.name || "未命名",
+            team: record.team || "-",
+            region: record.region || "-",
+            sales: 0,
+            orders: 0,
+            color: record.color || palette[grouped.size % palette.length]
+          });
+        }
+        const person = grouped.get(key);
+        person.sales += cleanNumber(record.amount);
+        person.orders += cleanNumber(record.orders);
+      });
+      return [...grouped.values()].map(person => ({ ...person, avg: person.orders ? person.sales / person.orders : 0 })).sort((a, b) => b.sales - a.sales);
+    }
+
+    function summarizeDetailRows() {
+      const monthSet = new Set(getMonthsForPeriod());
+      const grouped = new Map();
+      rawRecords.forEach(record => {
+        if (!recordMatches(record, monthSet)) return;
+        const key = [record.id, record.productLine, record.vendor, record.planType, record.status].join("|");
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            id: record.id || "",
+            name: record.name || "未命名",
+            team: record.team || "-",
+            region: record.region || "-",
+            productLine: record.productLine || "-",
+            vendor: record.vendor || "-",
+            planType: record.planType || "-",
+            status: record.status || "Submitted",
+            sales: 0,
+            orders: 0,
+            color: record.color || palette[grouped.size % palette.length]
+          });
+        }
+        const row = grouped.get(key);
+        row.sales += cleanNumber(record.amount);
+        row.orders += cleanNumber(record.orders);
+      });
+      return [...grouped.values()].map(row => ({ ...row, avg: row.orders ? row.sales / row.orders : 0 })).sort((a, b) => b.sales - a.sales);
+    }
+
+    function getMonthlyTotals() {
+      const months = getCurrentMonthKeys(rawRecords);
+      return months.map(month => {
+        let sales = 0;
+        let orders = 0;
+        rawRecords.forEach(record => {
+          if (!recordMatches(record)) return;
+          if (record.month !== month) return;
+          sales += cleanNumber(record.amount);
+          orders += cleanNumber(record.orders);
+        });
+        return { month, sales, orders };
+      });
+    }
+
+    function getSubmissionInforceMetrics() {
+      const monthSet = new Set(getMonthsForPeriod());
+      let submissionPremium = 0;
+      let submissionCases = 0;
+      let inforcePremium = 0;
+      let inforceCases = 0;
+
+      rawRecords.forEach(record => {
+        if (!recordMatches(record, monthSet, { ignoreStatus: true })) return;
+        const amount = cleanNumber(record.amount);
+        const orders = cleanNumber(record.orders);
+        submissionPremium += amount;
+        submissionCases += orders;
+        if (record.status === "Inforce") {
+          inforcePremium += amount;
+          inforceCases += orders;
+        }
+      });
+
+      return {
+        submissionPremium,
+        submissionCases,
+        inforcePremium,
+        inforceCases,
+        inforceRate: submissionPremium ? inforcePremium / submissionPremium : 0
+      };
+    }
+
+    function getPersonFilteredRecords(personId) {
+      const monthSet = new Set(getMonthsForPeriod());
+      return rawRecords.filter(record => recordMatches(record, monthSet) && String(record.id) === String(personId));
+    }
+
+    function summarizePersonalMonthly(personId) {
+      const records = getPersonFilteredRecords(personId);
+      const months = getMonthsForPeriod();
+      return months.map(month => {
+        const monthly = records.filter(r => r.month === month);
+        const sales = monthly.reduce((sum, row) => sum + cleanNumber(row.amount), 0);
+        const orders = monthly.reduce((sum, row) => sum + cleanNumber(row.orders), 0);
+        return {
+          month,
+          sales,
+          orders,
+          avg: orders ? sales / orders : 0
+        };
+      });
+    }
+
+    function summarizePersonalBreakdown(personId) {
+      const records = getPersonFilteredRecords(personId);
+      const grouped = new Map();
+      records.forEach(record => {
+        const key = [record.productLine, record.vendor, record.planType, record.status].join("|");
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            productLine: record.productLine || "-",
+            vendor: record.vendor || "-",
+            planType: record.planType || "-",
+            status: record.status || "Submitted",
+            sales: 0,
+            orders: 0
+          });
+        }
+        const row = grouped.get(key);
+        row.sales += cleanNumber(record.amount);
+        row.orders += cleanNumber(record.orders);
+      });
+      return [...grouped.values()].sort((a, b) => b.sales - a.sales);
+    }
+
+    function getSelectedPersonSummary(aggregated) {
+      return aggregated.find(person => String(person.id) === String(selectedSalespersonId)) || null;
+    }
+
+    function renderMetrics(aggregated) {
+      const totalSales = aggregated.reduce((sum, item) => sum + item.sales, 0);
+      const totalOrders = aggregated.reduce((sum, item) => sum + item.orders, 0);
+      const statusMetrics = getSubmissionInforceMetrics();
+      const avgValue = totalOrders ? totalSales / totalOrders : 0;
+      const topPerson = aggregated[0];
+      document.getElementById("metricSales").textContent = money.format(totalSales);
+      document.getElementById("metricOrders").textContent = totalOrders.toLocaleString("en-MY");
+      document.getElementById("metricAvg").textContent = money.format(avgValue);
+      document.getElementById("metricSalesSub").textContent = topPerson ? `最高业绩 / Top Premium: ${topPerson.name}` : "当前筛选暂无数据 / No data under current filters";
+      document.getElementById("metricOrdersSub").textContent = `统计月份 / Months: ${getMonthsForPeriod().join(" / ") || "-"}`;
+      document.getElementById("metricAvgSub").textContent = `${summarizeSelectionLabel("产品线 / Product", filters.productLine)} | ${summarizeSelectionLabel("供应商 / Vendor", filters.vendor)}`;
+      document.getElementById("metricSubmissionPremium").textContent = money.format(statusMetrics.submissionPremium);
+      document.getElementById("metricInforcePremium").textContent = money.format(statusMetrics.inforcePremium);
+      document.getElementById("metricInforceRate").textContent = `${(statusMetrics.inforceRate * 100).toFixed(1)}%`;
+      document.getElementById("metricSubmissionPremiumSub").textContent = `提交单数 / Submission Cases: ${statusMetrics.submissionCases.toLocaleString("en-MY")}`;
+      document.getElementById("metricInforcePremiumSub").textContent = `生效单数 / Inforce Cases: ${statusMetrics.inforceCases.toLocaleString("en-MY")}`;
+      document.getElementById("metricInforceRateSub").textContent = `按保费计算 / Based on premium | 已生效 / 已提交`;
+    }
+
+    function renderMonthTableHeader(months) {
+      document.getElementById("monthSummaryHead").innerHTML = `<th>月份</th>${months.map(month => `<th>${month}</th>`).join("")}`;
+    }
+
+    function renderMonthlyTable(monthlyTotals) {
+      const selectedMonths = new Set(getMonthsForPeriod());
+      const current = monthlyTotals.filter(item => selectedMonths.has(item.month));
+      const previous = monthlyTotals.map((item, index) => {
+        const prev = index === 0 ? { sales: 0 } : monthlyTotals[index - 1];
+        return { month: item.month, growth: prev.sales ? ((item.sales - prev.sales) / prev.sales) * 100 : 0 };
+      }).filter(item => selectedMonths.has(item.month));
+      renderMonthTableHeader(current.map(item => item.month));
+      const salesRow = current.map(row => `<td>${formatShortMoney(row.sales)}</td>`).join("");
+      const ordersRow = current.map(row => `<td>${row.orders}</td>`).join("");
+      const growthRow = previous.map(row => `<td>${row.growth.toFixed(1)}%</td>`).join("");
+      document.getElementById("monthSummaryBody").innerHTML = `
+        <tr><td><strong>业绩</strong></td>${salesRow}</tr>
+        <tr><td><strong>单数</strong></td>${ordersRow}</tr>
+        <tr><td><strong>增长率</strong></td>${growthRow}</tr>
+      `;
+    }
+
+    function renderTrendChart(monthlyTotals) {
+      const svg = document.getElementById("trendChart");
+      const width = 900;
+      const height = 420;
+      const margin = { top: 24, right: 56, bottom: 56, left: 66 };
+      const innerW = width - margin.left - margin.right;
+      const innerH = height - margin.top - margin.bottom;
+      const points = monthlyTotals.filter(item => getMonthsForPeriod().includes(item.month));
+      const maxSales = Math.max(...points.map(d => d.sales), 1);
+      const maxOrders = Math.max(...points.map(d => d.orders), 1);
+      const step = points.length ? innerW / points.length : innerW;
+      const barW = Math.min(58, Math.max(28, step * 0.45));
+      const bars = points.map((d, i) => {
+        const x = margin.left + i * step + (step - barW) / 2;
+        const h = (d.sales / maxSales) * (innerH - 24);
+        const y = margin.top + innerH - h;
+        return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="10" fill="#07b357"></rect>
+                <text x="${x + barW / 2}" y="${y - 10}" text-anchor="middle" font-size="12" fill="#07b357" font-weight="700">${formatShortMoney(d.sales)}</text>`;
+      }).join("");
+      const linePoints = points.map((d, i) => {
+        const x = margin.left + i * step + step / 2;
+        const y = margin.top + innerH - ((d.orders / maxOrders) * (innerH - 40)) - 10;
+        return `${x},${y}`;
+      }).join(" ");
+      const circles = points.map((d, i) => {
+        const x = margin.left + i * step + step / 2;
+        const y = margin.top + innerH - ((d.orders / maxOrders) * (innerH - 40)) - 10;
+        return `<circle cx="${x}" cy="${y}" r="5" fill="#ff3b30"></circle>
+                <text x="${x}" y="${y - 12}" text-anchor="middle" font-size="12" fill="#ff3b30" font-weight="700">${d.orders}</text>`;
+      }).join("");
+      const xLabels = points.map((d, i) => {
+        const x = margin.left + i * step + step / 2;
+        return `<text x="${x}" y="${height - 20}" text-anchor="middle" font-size="13" fill="#6a7386">${d.month}</text>`;
+      }).join("");
+      const gridLines = [0, .25, .5, .75, 1].map(level => {
+        const y = margin.top + innerH - innerH * level;
+        return `<line x1="${margin.left}" y1="${y}" x2="${width - margin.right}" y2="${y}" stroke="#e8edf4" stroke-width="1" />
+                <text x="${margin.left - 10}" y="${y + 4}" text-anchor="end" font-size="12" fill="#94a0b2">${formatShortMoney(maxSales * level)}</text>`;
+      }).join("");
+      svg.innerHTML = points.length
+        ? `${gridLines}<polyline fill="none" stroke="#ff3b30" stroke-width="3.5" points="${linePoints}"></polyline>${bars}${circles}${xLabels}`
+        : `<text x="50%" y="50%" text-anchor="middle" fill="#94a0b2">暂无数据</text>`;
+    }
+
+    function renderSalespersonSummary(aggregated) {
+      const topSales = aggregated[0];
+      const topOrders = [...aggregated].sort((a, b) => b.orders - a.orders)[0];
+      const bestAvg = [...aggregated].sort((a, b) => b.avg - a.avg)[0];
+      document.getElementById("topSalesperson").textContent = topSales ? topSales.name : "-";
+      document.getElementById("topSalespersonMeta").textContent = topSales ? `${money.format(topSales.sales)} | ${topSales.orders} 单 / cases | ${topSales.team}` : "-";
+      document.getElementById("topOrderName").textContent = topOrders ? topOrders.name : "-";
+      document.getElementById("topOrderMeta").textContent = topOrders ? `${topOrders.orders} 单 / cases | ${money.format(topOrders.sales)}` : "-";
+      document.getElementById("bestAvgName").textContent = bestAvg ? bestAvg.name : "-";
+      document.getElementById("bestAvgMeta").textContent = bestAvg ? `${money.format(bestAvg.avg)} / 单 / case` : "-";
+    }
+
+    function renderSalespersonChart(aggregated) {
+      const svg = document.getElementById("salespersonChart");
+      const width = 520;
+      const margin = { top: 16, right: 18, bottom: 22, left: 126 };
+      const rowH = 46;
+      const innerW = width - margin.left - margin.right;
+      const maxSales = Math.max(...aggregated.map(d => d.sales), 1);
+      const rows = aggregated.slice(0, 5).map((person, idx) => {
+        const y = margin.top + idx * rowH;
+        const barW = (person.sales / maxSales) * (innerW - 24);
+        const active = String(person.id) === String(selectedSalespersonId);
+        const inactiveClass = selectedSalespersonId && !active ? "inactive" : "";
+        const activeClass = active ? "active" : "";
+        return `<g class="person-bar ${inactiveClass} ${activeClass}" data-id="${person.id}">
+                  <text data-id="${person.id}" x="${margin.left - 12}" y="${y + 24}" text-anchor="end" font-size="13" fill="#1f2a44">${person.name}</text>
+                  <rect data-id="${person.id}" x="${margin.left}" y="${y + 8}" width="${barW}" height="22" rx="11" fill="${person.color}"></rect>
+                  <text data-id="${person.id}" x="${margin.left + barW + 8}" y="${y + 24}" font-size="12" fill="#4b5565">${formatShortMoney(person.sales)} | ${person.orders}单</text>
+                </g>`;
+      }).join("");
+      svg.innerHTML = rows || `<text x="50%" y="50%" text-anchor="middle" fill="#94a0b2">暂无数据</text>`;
+    }
+
+    function renderDetailTable(rows) {
+      const totalSales = rows.reduce((sum, item) => sum + item.sales, 0);
+      document.getElementById("recordCount").textContent = `${rows.length} 行 / rows`;
+      document.getElementById("salespersonBody").innerHTML = rows.map(row => {
+        const share = totalSales ? ((row.sales / totalSales) * 100).toFixed(1) : "0.0";
+        const active = String(row.id) === String(selectedSalespersonId) ? "active" : "";
+        return `<tr class="clickable-row ${active}" data-id="${row.id}">
+          <td>
+            <div class="name-cell">
+              <span class="avatar" style="background:${row.color}">${initials(row.name)}</span>
+              <div>
+                <div><strong class="clickable-name">${row.name}</strong></div>
+                <div class="muted">${row.id || "-"}</div>
+              </div>
+            </div>
+          </td>
+          <td>${row.team}</td>
+          <td>${row.region}</td>
+          <td>${row.productLine}</td>
+          <td>${row.vendor}</td>
+          <td>${row.planType}</td>
+          <td>${row.status}</td>
+          <td>${money.format(row.sales)}</td>
+          <td>${row.orders}</td>
+          <td>${money.format(row.avg)}</td>
+          <td>${share}%</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="11" class="muted">当前筛选条件下没有数据</td></tr>`;
+    }
+
+    function populateSalespersonFocus(aggregated) {
+      const options = [`<option value="">全部顾问 / All Advisors</option>`]
+        .concat(aggregated.map(person => `<option value="${person.id}">${person.name}</option>`));
+      salespersonFocusFilter.innerHTML = options.join("");
+      salespersonFocusFilter.value = selectedSalespersonId || "";
+    }
+
+    function renderPersonalView(aggregated) {
+      const hint = document.getElementById("personalHint");
+      const content = document.getElementById("personalContent");
+      populateSalespersonFocus(aggregated);
+
+      if (!selectedSalespersonId) {
+        hint.style.display = "block";
+        content.style.display = "none";
+        return;
+      }
+
+      const person = getSelectedPersonSummary(aggregated);
+      if (!person) {
+        selectedSalespersonId = "";
+        hint.style.display = "block";
+        content.style.display = "none";
+        populateSalespersonFocus(aggregated);
+        return;
+      }
+
+      hint.style.display = "none";
+      content.style.display = "block";
+      document.getElementById("personalSales").textContent = money.format(person.sales);
+      document.getElementById("personalOrders").textContent = person.orders.toLocaleString("en-MY");
+      document.getElementById("personalAvg").textContent = money.format(person.avg);
+
+      const monthlyRows = summarizePersonalMonthly(person.id);
+      document.getElementById("personalMonthlyBody").innerHTML = monthlyRows.map(row => `
+        <tr>
+          <td>${row.month}</td>
+          <td>${money.format(row.sales)}</td>
+          <td>${row.orders}</td>
+          <td>${money.format(row.avg)}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="4" class="muted">暂无数据 / No data</td></tr>`;
+
+      const breakdownRows = summarizePersonalBreakdown(person.id);
+      document.getElementById("personalBreakdownBody").innerHTML = breakdownRows.map(row => `
+        <tr>
+          <td>${row.productLine}</td>
+          <td>${row.vendor}</td>
+          <td>${row.planType}</td>
+          <td>${row.status}</td>
+          <td>${money.format(row.sales)}</td>
+          <td>${row.orders}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="6" class="muted">暂无数据 / No data</td></tr>`;
+    }
+
+    function updateDashboard() {
+      populateFilters();
+      const aggregated = summarizePeople();
+      const detailRows = summarizeDetailRows();
+      const monthlyTotals = getMonthlyTotals();
+      if (selectedSalespersonId && !aggregated.some(person => String(person.id) === String(selectedSalespersonId))) {
+        selectedSalespersonId = "";
+      }
+      renderMetrics(aggregated);
+      renderMonthlyTable(monthlyTotals);
+      renderTrendChart(monthlyTotals);
+      renderSalespersonSummary(aggregated);
+      renderSalespersonChart(aggregated);
+      renderDetailTable(detailRows);
+      renderPersonalView(aggregated);
+      document.getElementById("lastUpdated").textContent = `Data Source: ${currentSourceLabel} | Refreshed at ${new Date().toLocaleString("en-GB")}`;
+    }
+
+    function readSheetAsObjects(workbook, name) {
+      const sheet = workbook.Sheets[name];
+      return sheet ? XLSX.utils.sheet_to_json(sheet, { defval: "" }) : [];
+    }
+
+    function pickField(row, aliases) {
+      for (const key of aliases) {
+        if (Object.prototype.hasOwnProperty.call(row, key) && row[key] !== "") return row[key];
+      }
+      return "";
+    }
+
+    function readSheetHeader(workbook, name) {
+      const sheet = workbook.Sheets[name];
+      if (!sheet) return [];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: "" });
+      return rows[0] || [];
+    }
+
+    function hasAnyHeader(headers, aliases) {
+      return aliases.some(alias => headers.includes(alias));
+    }
+
+    function stringifyCell(value) {
+      if (value == null) return "";
+      return String(value).trim();
+    }
+
+    function formatImportErrors(errors) {
+      return errors.filter(Boolean).join("；");
+    }
+
+    function buildRecordsFromWorkbook(workbook) {
+      const aliasMap = {
+        id: ["销售员ID", "销售员ID / Salesperson ID"],
+        name: ["销售员姓名", "销售员姓名 / Salesperson Name"],
+        team: ["团队", "团队 / Team"],
+        region: ["地区", "地区 / Region"],
+        amount: [
+          "订单金额(MYR)",
+          "订单金额(MYR) / Order Amount (MYR)",
+          "保费金额(MYR)",
+          "保费金额(MYR) / Premium Amount (MYR)"
+        ],
+        orders: ["单数", "单数 / Case Count"],
+        date: [
+          "订单日期",
+          "订单日期 / Order Date",
+          "提交日期",
+          "提交日期 / Submission Date"
+        ],
+        month: ["月份", "月份 / Month"],
+        productLine: ["产品线", "产品线 / Product Line"],
+        vendor: ["公司/供应商", "公司/供应商 / Company/Vendor"],
+        planType: ["Plan Type", "Plan Type / 计划类型"],
+        status: ["生效状态", "生效状态 / Inforce Status", "Inforce Status"]
+      };
+      const sheetNames = workbook.SheetNames || [];
+      if (!sheetNames.includes("销售明细")) {
+        throw new Error(`找不到“销售明细”工作表。当前文件里的工作表有：${sheetNames.join("、") || "无"}`);
+      }
+
+      const detailHeaders = readSheetHeader(workbook, "销售明细");
+      const missingHeaders = [];
+      if (!hasAnyHeader(detailHeaders, aliasMap.id)) missingHeaders.push("销售员ID / Salesperson ID");
+      if (!hasAnyHeader(detailHeaders, aliasMap.name)) missingHeaders.push("销售员姓名 / Salesperson Name");
+      if (!hasAnyHeader(detailHeaders, aliasMap.amount)) missingHeaders.push("保费金额(MYR) / Premium Amount (MYR)");
+      if (!hasAnyHeader(detailHeaders, aliasMap.orders)) missingHeaders.push("单数 / Case Count");
+      if (!hasAnyHeader(detailHeaders, aliasMap.productLine)) missingHeaders.push("产品线 / Product Line");
+      if (missingHeaders.length) {
+        throw new Error(`“销售明细”缺少必要表头：${missingHeaders.join("、")}`);
+      }
+
+      const masterRows = readSheetAsObjects(workbook, "销售员主数据");
+      const detailRows = readSheetAsObjects(workbook, "销售明细");
+      if (!detailRows.length) throw new Error("“销售明细”存在，但表头下面没有任何数据行。");
+
+      const masterMap = new Map();
+      masterRows.forEach(row => {
+        const id = String(pickField(row, aliasMap.id) || "").trim();
+        if (!id) return;
+        masterMap.set(id, {
+          name: pickField(row, aliasMap.name),
+          team: pickField(row, aliasMap.team),
+          region: pickField(row, aliasMap.region)
+        });
+      });
+
+      const records = [];
+      const invalidRows = [];
+      detailRows.forEach((row, index) => {
+        const excelRow = index + 2;
+        const rawId = pickField(row, aliasMap.id);
+        const rawName = pickField(row, aliasMap.name);
+        const rawAmount = pickField(row, aliasMap.amount);
+        const rawOrders = pickField(row, aliasMap.orders);
+        const rawDate = pickField(row, aliasMap.date);
+        const rawProductLine = pickField(row, aliasMap.productLine);
+        const rawVendor = pickField(row, aliasMap.vendor);
+        const rawPlanType = pickField(row, aliasMap.planType);
+        const rawStatus = pickField(row, aliasMap.status);
+        const rawMonth = pickField(row, aliasMap.month);
+
+        const id = stringifyCell(rawId);
+        const master = masterMap.get(id) || {};
+        const name = stringifyCell(rawName) || master.name;
+        const amount = cleanNumber(rawAmount);
+        const hasAmount = rawAmount !== "" && rawAmount != null;
+        const hasOrders = rawOrders !== "" && rawOrders != null;
+        const orders = cleanNumber(hasOrders ? rawOrders : 1);
+        const date = parseExcelDate(rawDate);
+        const monthFromDate = date ? allMonthKeys[date.getMonth()] : "";
+        const month = normalizeMonth(rawMonth || monthFromDate);
+        const year = date ? String(date.getFullYear()) : String(filters.year);
+        const productLine = stringifyCell(rawProductLine);
+        const vendor = stringifyCell(rawVendor);
+        const planType = stringifyCell(rawPlanType);
+        const status = normalizeInforceStatus(rawStatus);
+        const hasIdentity = Boolean(id || name);
+        const hasMetrics = hasAmount || hasOrders;
+        const rowHasAnyContent = row && Object.values(row).some(value => value !== "" && value != null);
+
+        if (!rowHasAnyContent) return;
+        if (!hasIdentity || !hasMetrics) {
+          const missing = [];
+          if (!hasIdentity) missing.push("销售员ID/姓名");
+          if (!hasMetrics) missing.push("订单金额或单数");
+          invalidRows.push(`第 ${excelRow} 行缺少 ${missing.join(" 和 ")}`);
+          return;
+        }
+
+        records.push({
+          id: id || name || `row-${index + 1}`,
+          name: name || `Sales ${index + 1}`,
+          team: String(pickField(row, aliasMap.team) || master.team || "Unassigned"),
+          region: String(pickField(row, aliasMap.region) || master.region || "Unknown"),
+          productLine: productLine || "Unknown",
+          vendor: vendor || "Unknown",
+          planType: planType || "Unknown",
+          status,
+          amount,
+          orders: orders || 1,
+          month: month || "Jan",
+          year,
+          date: date || null,
+          color: palette[records.length % palette.length]
+        });
+      });
+
+      if (!records.length) {
+        const detail = invalidRows.length
+          ? `已检查到这些问题：${invalidRows.slice(0, 6).join("；")}${invalidRows.length > 6 ? "；..." : ""}`
+          : "请确认至少有一行同时填写了“销售员ID/姓名”以及“订单金额或单数”。";
+        throw new Error(`“销售明细”里没有有效的订单数据。${detail}`);
+      }
+      return records;
+    }
+
+    async function handleExcelUpload(file) {
+      if (!window.XLSX) {
+        setStatus("当前状态: 未导入数据 / Current: No Data Loaded", "无法加载 Excel 解析库 / Cannot load Excel parser", false);
+        return;
+      }
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+      rawRecords = buildRecordsFromWorkbook(workbook);
+      currentSourceLabel = file.name;
+      filters.team = "All";
+      filters.region = "All";
+      filters.vendor = [];
+      filters.planType = "All";
+      filters.status = "All";
+      filters.productLine = [];
+      filters.period = "YTD";
+      filters.year = getAvailableYears(rawRecords).slice(-1)[0];
+      filters.month = getCurrentMonthKeys(rawRecords).slice(-1)[0];
+      selectedSalespersonId = "";
+      setStatus("当前状态: 已导入 Excel / Current: Excel Loaded", `已导入: ${file.name} / Imported successfully`, true);
+      updateDashboard();
+    }
+
+    function bindEvents() {
+      teamFilter.addEventListener("change", e => { filters.team = e.target.value; updateDashboard(); });
+      periodFilter.addEventListener("change", e => { filters.period = e.target.value; updateDashboard(); });
+      monthFilter.addEventListener("change", e => { filters.month = e.target.value; updateDashboard(); });
+      yearFilter.addEventListener("change", e => { filters.year = e.target.value; filters.month = getCurrentMonthKeys(rawRecords).slice(-1)[0]; updateDashboard(); });
+      regionFilter.addEventListener("change", e => { filters.region = e.target.value; updateDashboard(); });
+      planTypeFilter.addEventListener("change", e => { filters.planType = e.target.value; updateDashboard(); });
+      statusFilter.addEventListener("change", e => { filters.status = e.target.value; updateDashboard(); });
+      vendorChips.addEventListener("click", e => {
+        if (!e.target.classList.contains("chip")) return;
+        const value = e.target.dataset.value;
+        filters.vendor = value === "__all__" ? [] : toggleMultiSelection(filters.vendor, value);
+        updateDashboard();
+      });
+      productChips.addEventListener("click", e => {
+        if (!e.target.classList.contains("chip")) return;
+        const value = e.target.dataset.value;
+        filters.productLine = value === "__all__" ? [] : toggleMultiSelection(filters.productLine, value);
+        updateDashboard();
+      });
+      salespersonBody.addEventListener("click", e => {
+        const row = e.target.closest("tr[data-id]");
+        if (!row) return;
+        selectedSalespersonId = row.dataset.id || "";
+        updateDashboard();
+      });
+      salespersonChart.addEventListener("click", e => {
+        const target = e.target.closest("[data-id]");
+        if (!target) return;
+        selectedSalespersonId = target.dataset.id || "";
+        updateDashboard();
+      });
+      salespersonFocusFilter.addEventListener("change", e => {
+        selectedSalespersonId = e.target.value || "";
+        updateDashboard();
+      });
+      clearSalespersonFocus.addEventListener("click", () => {
+        selectedSalespersonId = "";
+        updateDashboard();
+      });
+      excelFile.addEventListener("change", async e => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          await handleExcelUpload(file);
+        } catch (error) {
+          console.error(error);
+          setStatus("当前状态: 导入失败 / Current: Import Failed", `导入失败: ${error.message}`, false);
+        }
+      });
+    }
+
+    function init() {
+      rawRecords = [];
+      filters.year = String(new Date().getFullYear());
+      filters.month = "Jun";
+      bindEvents();
+      updateDashboard();
+      setStatus("当前状态: 未导入数据 / Current: No Data Loaded", "请先导入 Excel / Please import Excel first", false);
+    }
+
+    init();
+  </script>
+</body>
+</html>
