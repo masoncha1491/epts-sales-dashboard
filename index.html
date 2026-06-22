@@ -1223,8 +1223,9 @@
 
     function buildRecordsFromWorkbook(workbook) {
       const aliasMap = {
-        id: ["销售员ID", "销售员ID / Salesperson ID"],
-        name: ["销售员姓名", "销售员姓名 / Salesperson Name"],
+        // Backward-compatible: accept both Salesperson and Advisor naming
+        id: ["顾问ID", "顾问ID / Advisor ID", "Advisor ID", "销售员ID", "销售员ID / Salesperson ID"],
+        name: ["顾问姓名", "顾问姓名 / Advisor Name", "Advisor Name", "销售员姓名", "销售员姓名 / Salesperson Name"],
         team: ["团队", "团队 / Team"],
         region: ["地区", "地区 / Region"],
         amount: [
@@ -1253,8 +1254,11 @@
 
       const detailHeaders = readSheetHeader(workbook, "销售明细");
       const missingHeaders = [];
-      if (!hasAnyHeader(detailHeaders, aliasMap.id)) missingHeaders.push("销售员ID / Salesperson ID");
-      if (!hasAnyHeader(detailHeaders, aliasMap.name)) missingHeaders.push("销售员姓名 / Salesperson Name");
+      const hasIdHeader = hasAnyHeader(detailHeaders, aliasMap.id);
+      const hasNameHeader = hasAnyHeader(detailHeaders, aliasMap.name);
+      if (!hasIdHeader && !hasNameHeader) {
+        missingHeaders.push("顾问ID 或 顾问姓名 / Advisor ID or Advisor Name");
+      }
       if (!hasAnyHeader(detailHeaders, aliasMap.amount)) missingHeaders.push("保费金额(MYR) / Premium Amount (MYR)");
       if (!hasAnyHeader(detailHeaders, aliasMap.orders)) missingHeaders.push("单数 / Case Count");
       if (!hasAnyHeader(detailHeaders, aliasMap.productLine)) missingHeaders.push("产品线 / Product Line");
@@ -1314,8 +1318,8 @@
         if (!rowHasAnyContent) return;
         if (!hasIdentity || !hasMetrics) {
           const missing = [];
-          if (!hasIdentity) missing.push("销售员ID/姓名");
-          if (!hasMetrics) missing.push("订单金额或单数");
+          if (!hasIdentity) missing.push("顾问ID/姓名");
+          if (!hasMetrics) missing.push("保费金额或单数");
           invalidRows.push(`第 ${excelRow} 行缺少 ${missing.join(" 和 ")}`);
           return;
         }
@@ -1341,7 +1345,7 @@
       if (!records.length) {
         const detail = invalidRows.length
           ? `已检查到这些问题：${invalidRows.slice(0, 6).join("；")}${invalidRows.length > 6 ? "；..." : ""}`
-          : "请确认至少有一行同时填写了“销售员ID/姓名”以及“订单金额或单数”。";
+          : "请确认至少有一行同时填写了“顾问ID/姓名”以及“保费金额或单数”。";
         throw new Error(`“销售明细”里没有有效的订单数据。${detail}`);
       }
       return records;
